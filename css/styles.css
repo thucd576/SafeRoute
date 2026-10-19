@@ -432,3 +432,141 @@ h2 {
     grid-template-columns: 1fr;
   }
 }
+
+/* SafeRoute: cleaner results and statistics */
+
+.results-card {
+  padding: 24px;
+  line-height: 1.6;
+}
+
+.results-card section {
+  margin-top: 26px;
+}
+
+.results-card h2 {
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+
+.compare {
+  gap: 14px;
+  margin: 20px 0;
+}
+
+.route-card {
+  padding: 20px;
+  border-radius: 16px;
+  background: #f6f8f7;
+  border: 1px solid #e1e8e4;
+}
+
+.route-card[data-card="safety"] {
+  background: #f0f7f2;
+  border-color: #a9cfb7;
+}
+
+.route-card .kicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: #62716a;
+  margin: 0 0 10px;
+}
+
+.route-card .metric {
+  font-size: 2rem;
+  line-height: 1.15;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  margin: 0 0 6px;
+}
+
+.route-card .meta {
+  color: #64716b;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.route-card .extra {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #28734f;
+  margin: 12px 0 0;
+}
+
+#avoided-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#avoided-list li {
+  padding: 18px;
+  border: 1px solid #e1e8e4;
+  border-radius: 14px;
+  background: #fafcfb;
+}
+
+#avoided-list li strong {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 8px 0 4px;
+  color: #243b30;
+}
+
+#avoided-list li span {
+  display: block;
+  color: #62716a;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  margin-top: 5px;
+}
+
+#avoided-list li br {
+  display: block;
+  content: "";
+  margin-top: 12px;
+}
+
+#explanation {
+  padding: 16px 18px;
+  border-left: 3px solid #75a88b;
+  border-radius: 0 12px 12px 0;
+  background: #f5f8f6;
+  color: #4c5d54;
+  line-height: 1.8;
+  font-size: 0.93rem;
+}
+
+#alt-note {
+  padding: 12px 15px;
+  border-radius: 10px;
+  background: #f2f5f4;
+  color: #586a61;
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+.disclaimer {
+  color: #748078;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  margin-top: 22px;
+}
+
+@media (max-width: 600px) {
+  .results-card {
+    padding: 16px;
+  }
+
+  .compare {
+    grid-template-columns: 1fr;
+  }
+
+  .route-card .metric {
+    font-size: 1.8rem;
+  }
+}
