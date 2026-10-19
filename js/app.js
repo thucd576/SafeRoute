@@ -1,3 +1,4 @@
+
 import {
   DEFAULT_START,
   DEFAULT_DESTINATION,
@@ -11,448 +12,161 @@ import {
   showRoute,
 } from "./map.js";
 
+const startInput = document.querySelector("#start");
+const destinationInput = document.querySelector("#destination");
+const form = document.querySelector("#route-form");
+const results = document.querySelector("#results");
+const fastestTime = document.querySelector("#fastest-time");
+const fastestDistance = document.querySelector("#fastest-distance");
+const safetyTime = document.querySelector("#safety-time");
+const safetyDistance = document.querySelector("#safety-distance");
+const safetyExtra = document.querySelector("#safety-extra");
+const avoidedList = document.querySelector("#avoided-list");
+const explanation = document.querySelector("#explanation");
+const altNote = document.querySelector("#alt-note");
+const disclaimer = document.querySelector("#disclaimer");
+const status = document.querySelector("#status");
 
-/* ---------------------------------
-   PAGE ELEMENTS
----------------------------------- */
+startInput.value = DEFAULT_START;
+destinationInput.value = DEFAULT_DESTINATION;
+disclaimer.textContent = DISCLAIMER;
 
-const startInput =
-  document.querySelector("#start");
+initMap(document.querySelector("#map"));
 
-const destinationInput =
-  document.querySelector("#destination");
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
 
-const form =
-  document.querySelector("#route-form");
+  const start = startInput.value.trim();
+  const destination = destinationInput.value.trim();
+  const preference = form.elements.preference.value;
 
-const results =
-  document.querySelector("#results");
+  if (!start || !destination) return;
 
-const fastestTime =
-  document.querySelector("#fastest-time");
+  if (status) {
+    status.hidden = false;
+    status.textContent =
+      "Finding routes and analyzing historical collision data...";
+  }
 
-const fastestDistance =
-  document.querySelector("#fastest-distance");
+  results.hidden = true;
 
-const safetyTime =
-  document.querySelector("#safety-time");
+  try {
+    const result = await findRoutes({
+      start,
+      destination,
+      preference,
+    });
 
-const safetyDistance =
-  document.querySelector("#safety-distance");
+    renderResults(result);
 
-const safetyExtra =
-  document.querySelector("#safety-extra");
-
-const avoidedList =
-  document.querySelector("#avoided-list");
-
-const explanation =
-  document.querySelector("#explanation");
-
-const altNote =
-  document.querySelector("#alt-note");
-
-const disclaimer =
-  document.querySelector("#disclaimer");
-
-const status =
-  document.querySelector("#status");
-
-
-/* ---------------------------------
-   DEFAULT VALUES
----------------------------------- */
-
-startInput.value =
-  DEFAULT_START;
-
-destinationInput.value =
-  DEFAULT_DESTINATION;
-
-disclaimer.textContent =
-  DISCLAIMER;
-
-
-/* ---------------------------------
-   INITIALIZE MAP
----------------------------------- */
-
-initMap(
-  document.querySelector("#map")
-);
-
-
-/* ---------------------------------
-   FORM SUBMISSION
----------------------------------- */
-
-form.addEventListener(
-  "submit",
-  async (event) => {
-    event.preventDefault();
-
-    const start =
-      startInput.value.trim();
-
-    const destination =
-      destinationInput.value.trim();
-
-    const preference =
-      form.elements.preference.value;
-
-
-    if (
-      !start ||
-      !destination
-    ) {
-      return;
-    }
-
-
-    /*
-     * Show loading message if the
-     * status element exists.
-     */
+    if (status) status.hidden = true;
+    results.hidden = false;
+  } catch (error) {
+    console.error("SafeRoute error:", error);
 
     if (status) {
       status.hidden = false;
-
       status.textContent =
-        "Finding routes and analyzing historical collision data...";
+        error.message ||
+        "Something went wrong while finding the route.";
     }
-
 
     results.hidden = true;
-
-
-    try {
-      const result =
-        await findRoutes({
-          start,
-          destination,
-          preference,
-        });
-
-
-      renderResults(
-        result
-      );
-
-
-      if (status) {
-        status.hidden = true;
-      }
-
-
-      results.hidden = false;
-
-    } catch (error) {
-      console.error(
-        "SafeRoute error:",
-        error
-      );
-
-
-      if (status) {
-        status.hidden = false;
-
-        status.textContent =
-          error.message ||
-          "Something went wrong while finding the route.";
-      }
-
-      results.hidden = true;
-    }
   }
-);
+});
 
+function renderResults(result) {
+  const { fastest, safety, alternativesAvailable } = result;
 
-/* ---------------------------------
-   RENDER RESULTS
----------------------------------- */
+  fastestTime.textContent = `${fastest.minutes} min`;
+  fastestDistance.textContent = `${fastest.miles} mi`;
 
-function renderResults(
-  result
-) {
-  const {
-    fastest,
-    safety,
-    selected,
-    alternativesAvailable,
-  } = result;
+  safetyTime.textContent = `${safety.minutes} min`;
+  safetyDistance.textContent = `${safety.miles} mi`;
 
+  const extraMinutes = Math.max(
+    0,
+    safety.minutes - fastest.minutes
+  );
 
-  /*
-   * --------------------------------
-   * FASTEST ROUTE
-   * --------------------------------
-   */
-
-  fastestTime.textContent =
-    `${fastest.minutes} min`;
-
-  fastestDistance.textContent =
-    `${fastest.miles} mi`;
-
-
-  /*
-   * --------------------------------
-   * SAFETY ROUTE
-   * --------------------------------
-   */
-
-  safetyTime.textContent =
-    `${safety.minutes} min`;
-
-  safetyDistance.textContent =
-    `${safety.miles} mi`;
-
-
-  /*
-   * How much longer is the safety
-   * route than the fastest route?
-   */
-
-  const extraMinutes =
-    Math.max(
-      0,
-      safety.minutes -
-        fastest.minutes
-    );
-
-
-  if (
+  safetyExtra.textContent =
     extraMinutes === 0
-  ) {
-    safetyExtra.textContent =
-      "Same estimated travel time as fastest route";
-  } else {
-    safetyExtra.textContent =
-      `${extraMinutes} min slower than fastest`;
-  }
+      ? "Same estimated travel time as fastest route"
+      : `${extraMinutes} min slower than fastest`;
 
-
-  /*
-   * --------------------------------
-   * ALTERNATIVE ROUTE MESSAGE
-   * --------------------------------
-   */
-
-  if (
-    alternativesAvailable
-  ) {
-    altNote.hidden = false;
-
-    altNote.textContent =
-      "SafeRoute compared multiple real road routes using historical collision exposure.";
-  } else {
-    altNote.hidden = false;
-
-    altNote.textContent =
-      "Only one alternative road route was available for this trip.";
-  }
-
-
-  /*
-   * --------------------------------
-   * COLLISION COMPARISON
-   * --------------------------------
-   */
+  altNote.hidden = false;
+  altNote.textContent = alternativesAvailable
+    ? "SafeRoute compared multiple real road routes using historical collision exposure."
+    : "No alternative route was returned for comparison. The app cannot establish that a different route is safer.";
 
   avoidedList.innerHTML = "";
 
+  const fastestCrashes = fastest.crashCount;
+  const safetyCrashes = safety.crashCount;
 
-  const fastestCrashes =
-    fastest.crashCount;
-
-  const safetyCrashes =
-    safety.crashCount;
-
-
-  const riskItem =
-    document.createElement(
-      "li"
-    );
-
+  const riskItem = document.createElement("li");
 
   if (
     fastestCrashes != null &&
-    safetyCrashes != null
+    safetyCrashes != null &&
+    fastest.miles > 0 &&
+    safety.miles > 0
   ) {
+    const fastestPerMile = fastestCrashes / fastest.miles;
+    const safetyPerMile = safetyCrashes / safety.miles;
+    const difference = fastestPerMile - safetyPerMile;
 
-    const difference =
-      fastestCrashes -
-      safetyCrashes;
+    const formatRate = (rate) =>
+      rate.toLocaleString("en-US", {
+        maximumFractionDigits: 1,
+      });
 
+    let comparison;
 
-    const percent =
-      fastestCrashes > 0
-        ? Math.round(
-            (
-              difference /
-              fastestCrashes
-            ) *
-              100
-          )
+    if (difference > 0) {
+      const percent = fastestPerMile > 0
+        ? Math.round((difference / fastestPerMile) * 100)
         : 0;
 
+      comparison =
+        `The safety route has about ${formatRate(difference)} fewer nearby historical collisions per mile (${percent}% lower by this rough measure).`;
+    } else if (difference < 0) {
+      const percent = safetyPerMile > 0
+        ? Math.round((Math.abs(difference) / safetyPerMile) * 100)
+        : 0;
 
-    if (
-      difference > 0
-    ) {
-
-      riskItem.innerHTML = `
-        <strong>
-          Fastest route:
-          ${fastestCrashes.toLocaleString()}
-          historical collisions
-        </strong>
-
-        <span>
-          Safety route:
-          ${safetyCrashes.toLocaleString()}
-          historical collisions
-        </span>
-
-        <span>
-          The Safety route has
-          ${difference.toLocaleString()}
-          fewer historical collisions near
-          the route — about ${percent}% lower
-          historical collision exposure.
-        </span>
-
-        <span>
-          Historical collision exposure comes
-          from the City of Los Angeles public
-          collision dataset. This does not
-          guarantee that a route is currently safer.
-        </span>
-      `;
-
-    } else if (
-      difference < 0
-    ) {
-
-      riskItem.innerHTML = `
-        <strong>
-          Fastest route:
-          ${fastestCrashes.toLocaleString()}
-          historical collisions
-        </strong>
-
-        <span>
-          Safety route:
-          ${safetyCrashes.toLocaleString()}
-          historical collisions
-        </span>
-
-        <span>
-          The selected Safety route has
-          ${Math.abs(difference).toLocaleString()}
-          more historical collisions near
-          the route.
-        </span>
-
-        <span>
-          Historical collision exposure comes
-          from the City of Los Angeles public
-          collision dataset.
-        </span>
-      `;
-
+      comparison =
+        `The safety route has about ${formatRate(Math.abs(difference))} more nearby historical collisions per mile (${percent}% higher by this rough measure).`;
     } else {
-
-      riskItem.innerHTML = `
-        <strong>
-          Fastest route:
-          ${fastestCrashes.toLocaleString()}
-          historical collisions
-        </strong>
-
-        <span>
-          Safety route:
-          ${safetyCrashes.toLocaleString()}
-          historical collisions
-        </span>
-
-        <span>
-          Both routes have the same historical
-          collision exposure.
-        </span>
-
-        <span>
-          Historical collision exposure comes
-          from the City of Los Angeles public
-          collision dataset.
-        </span>
-      `;
+      comparison =
+        "Both routes have the same calculated historical collision count per mile.";
     }
-
-  } else {
 
     riskItem.innerHTML = `
-      <strong>
-        Historical crash data unavailable
-      </strong>
-
-      <span>
-        The road routes are real, but historical
-        collision data could not be loaded
-        for this request.
-      </span>
+      <strong>Fastest route: ${fastestCrashes.toLocaleString()} nearby historical collisions</strong>
+      <span>Distance: ${fastest.miles} mi · Approx. ${formatRate(fastestPerMile)} collisions per mile</span>
+      <br>
+      <strong>Safety route: ${safetyCrashes.toLocaleString()} nearby historical collisions</strong>
+      <span>Distance: ${safety.miles} mi · Approx. ${formatRate(safetyPerMile)} collisions per mile</span>
+      <br>
+      <span>${comparison}</span>
+      <br>
+      <span>These are approximate counts near each route, divided by route distance—not a validated safety score. Historical data cannot guarantee current road safety.</span>
     `;
-  }
-
-
-  avoidedList.appendChild(
-    riskItem
-  );
-
-
-  /*
-   * --------------------------------
-   * WHY DID THE ROUTE CHANGE?
-   * --------------------------------
-   */
-
-  if (
-    fastestCrashes != null &&
-    safetyCrashes != null
-  ) {
-
-    const difference =
-      fastestCrashes -
-      safetyCrashes;
-
-
-    if (
-      difference > 0
-    ) {
-
-      explanation.textContent =
-        `SafeRoute selected a different road path because it found lower historical collision exposure. The fastest route has ${fastestCrashes.toLocaleString()} historical collisions near the route, while the safety route has ${safetyCrashes.toLocaleString()}.`;
-
-    } else {
-
-      explanation.textContent =
-        "SafeRoute compared the available routes using historical collision exposure. In this case, the safety route did not have lower historical collision exposure than the fastest route.";
-    }
-
-  } else {
 
     explanation.textContent =
-      "SafeRoute compares available road routes using historical collision exposure from public data.";
+      `The app compares both total nearby historical collision counts and approximate counts per mile. The per-mile comparison accounts for route length, but it cannot establish which route is objectively safest. Consider the travel time, route details, and these limitations before choosing.`;
+  } else {
+    riskItem.innerHTML = `
+      <strong>Historical collision comparison unavailable</strong>
+      <span>One or both routes are missing valid collision counts or distance data. SafeRoute cannot make a reliable comparison for this trip.</span>
+    `;
+
+    explanation.textContent =
+      "The app could not calculate a complete comparison because valid collision counts or route distances were unavailable. It should not claim that one route is safer.";
   }
 
+  avoidedList.appendChild(riskItem);
 
-  /*
-   * --------------------------------
-   * SHOW SELECTED ROUTE
-   * --------------------------------
-   */
-
-  showRoute(
-    result
-  );
+  showRoute(result);
 }
