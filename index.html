@@ -1,106 +1,313 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SafeRoute</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-      crossorigin=""
-    />
-    <link rel="stylesheet" href="css/styles.css" />
-  </head>
-  <body>
-    <main class="app">
-      <aside class="sidebar">
-        <header class="brand">
-          <div class="logo-row">
-            <div class="mark" aria-hidden="true">S</div>
-            <h1>SafeRoute</h1>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f5f7f5" />
+  <title>SafeRoute — Thoughtful Route Planning</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+
+<body>
+  <main class="app">
+    <aside class="sidebar">
+      <header class="brand">
+        <div class="logo-row">
+          <div class="mark" aria-hidden="true">S</div>
+          <h1>SafeRoute</h1>
+        </div>
+        <p class="subtitle">
+          A more thoughtful way to choose your route.
+        </p>
+        <span class="product-tag">
+          <span class="status-dot"></span>
+          Historical safety route planner
+        </span>
+      </header>
+
+      <form class="panel" id="route-form">
+        <div class="section-heading">
+          <span class="eyebrow">YOUR JOURNEY</span>
+          <span class="step-label">01 / 02</span>
+        </div>
+
+        <label for="start">Starting point</label>
+        <input
+          id="start"
+          name="start"
+          type="text"
+          required
+          autocomplete="off"
+          placeholder="e.g. UCLA, Los Angeles"
+        />
+
+        <label for="destination">Destination</label>
+        <input
+          id="destination"
+          name="destination"
+          type="text"
+          required
+          autocomplete="off"
+          placeholder="Where are you going?"
+        />
+
+        <div class="field-divider"></div>
+
+        <label id="pref-label">What matters most?</label>
+        <div class="prefs" role="radiogroup" aria-labelledby="pref-label">
+          <label>
+            <input type="radio" name="preference" value="fastest" />
+            <span>Fastest</span>
+          </label>
+          <label>
+            <input type="radio" name="preference" value="balanced" checked />
+            <span>Balanced</span>
+          </label>
+          <label>
+            <input type="radio" name="preference" value="safety" />
+            <span>Safety</span>
+          </label>
+        </div>
+
+        <label for="time-limit">Maximum extra travel time</label>
+        <select id="time-limit" name="timeLimit">
+          <option value="5">Up to 5 extra minutes</option>
+          <option value="10" selected>Up to 10 extra minutes</option>
+          <option value="15">Up to 15 extra minutes</option>
+          <option value="30">Up to 30 extra minutes</option>
+        </select>
+
+        <button type="submit" id="find-route-button">
+          Find my route <span aria-hidden="true">→</span>
+        </button>
+
+        <p class="form-note">
+          SafeRoute compares available driving routes with public historical
+          collision data. It cannot guarantee that a route is safer today.
+        </p>
+      </form>
+
+      <div class="privacy-note">
+        <span aria-hidden="true">ⓘ</span>
+        <p>
+          You stay in control. SafeRoute recommends; you decide.
+        </p>
+      </div>
+    </aside>
+
+    <section class="map-col">
+      <div class="map-card">
+        <div id="demo-banner" hidden>
+          Historical collision data loaded
+        </div>
+
+        <div id="selected-label" hidden></div>
+
+        <div
+          id="map"
+          role="application"
+          aria-label="Interactive map showing driving routes"
+        ></div>
+
+        <div class="map-legend">
+          <div class="legend-item">
+            <span class="swatch chosen"></span>
+            Selected route
           </div>
-          <p class="subtitle">What if your GPS cared about crash history?</p>
+          <div class="legend-item">
+            <span class="swatch fast"></span>
+            Fastest
+          </div>
+          <div class="legend-item">
+            <span class="swatch other"></span>
+            Other route
+          </div>
+        </div>
+      </div>
+
+      <article class="welcome-card" id="empty-state">
+        <div class="welcome-icon" aria-hidden="true">↗</div>
+        <div>
+          <h2>Your next trip, thoughtfully planned.</h2>
+          <p>
+            Enter your destination to compare driving times and historical
+            collision exposure. SafeRoute will explain the trade-offs.
+          </p>
+        </div>
+      </article>
+
+      <div id="status" class="status-message" role="status" hidden></div>
+
+      <article class="results-card" id="results" hidden>
+        <header class="results-header">
+          <div>
+            <span class="eyebrow">YOUR ROUTE REPORT</span>
+            <h2>Here's what we found</h2>
+            <p class="results-subtitle">
+              Compare the options before making your choice.
+            </p>
+          </div>
+          <span class="report-mark" aria-hidden="true">S</span>
         </header>
 
-        <form class="panel" id="route-form">
-          <label for="start">Start</label>
-          <input id="start" name="start" type="text" required autocomplete="off" />
-
-          <label for="destination">Destination</label>
-          <input id="destination" name="destination" type="text" required autocomplete="off" />
-
-          <label id="pref-label">Route preference</label>
-          <div class="prefs" role="radiogroup" aria-labelledby="pref-label">
-            <label>
-              <input type="radio" name="preference" value="fastest" />
-              <span>Fastest</span>
-            </label>
-            <label>
-              <input type="radio" name="preference" value="balanced" checked />
-              <span>Balanced</span>
-            </label>
-            <label>
-              <input type="radio" name="preference" value="safety" />
-              <span>Safety</span>
-            </label>
+        <section class="coach-card" aria-labelledby="coach-heading">
+          <div class="coach-topline">
+            <span class="coach-icon" aria-hidden="true">✳</span>
+            <span class="eyebrow">SAFEROUTE ROUTE COACH</span>
+            <span class="autonomy-tag">Auto-analysis</span>
           </div>
 
-          <button type="submit">Find Route</button>
-          <p class="hint">Routes follow real roads via OpenStreetMap, Nominatim, and OSRM. Crash-risk information is still DEMO-only.</p>
-        </form>
-      </aside>
+          <h2 id="coach-heading">Recommendation</h2>
+          <p id="coach-recommendation">
+            Comparing route options and available evidence…
+          </p>
 
-      <section class="map-col">
-        <div class="map-card">
-          <div id="demo-banner" hidden>Historical crash data loaded</div>
-          <div id="selected-label" hidden></div>
-          <div id="map" role="application" aria-label="Interactive OpenStreetMap with driving route"></div>
-          <div class="map-legend">
-            <div class="legend-item"><span class="swatch fast"></span> Fastest route</div>
-            <div class="legend-item"><span class="swatch chosen"></span> Selected preference</div>
+          <div class="coach-reasons" id="coach-reasons"></div>
+
+          <p class="confidence-note" id="confidence-note"></p>
+
+          <div class="approval-actions">
+            <button type="button" id="approve-route" class="primary-action">
+              Use recommended route
+            </button>
+            <button type="button" id="choose-route" class="secondary-action">
+              Choose another route
+            </button>
+          </div>
+
+          <p class="approval-status" id="approval-status" role="status" hidden></p>
+        </section>
+
+        <div class="compare-heading">
+          <div>
+            <span class="eyebrow">SIDE BY SIDE</span>
+            <h2>Compare routes</h2>
+          </div>
+          <span class="small-note">Collisions = recorded near the route (LA open data)</span>
+        </div>
+
+        <p class="alt-note" id="alt-note" hidden></p>
+
+        <div class="compare">
+          <!-- Fastest route card -->
+          <div class="route-card" data-card="fastest">
+            <div class="card-head">
+              <p class="kicker">FASTEST ROUTE</p>
+              <span class="card-tag tag-fast">Shortest time</span>
+            </div>
+
+            <p class="metric" id="fastest-time">—</p>
+            <p class="metric-sub" id="fastest-extra">Baseline for comparison</p>
+
+            <dl class="stat-grid">
+              <div class="stat">
+                <dt>Distance</dt>
+                <dd id="fastest-distance">—</dd>
+              </div>
+              <div class="stat">
+                <dt>Collisions nearby</dt>
+                <dd id="fastest-collisions">—</dd>
+              </div>
+              <div class="stat">
+                <dt>Per mile</dt>
+                <dd id="fastest-rate">—</dd>
+              </div>
+            </dl>
+
+            <button type="button" class="route-select" data-select-route="fastest">
+              Choose fastest
+            </button>
+          </div>
+
+          <!-- Safety-focused route card -->
+          <div class="route-card" data-card="safety">
+            <div class="card-head">
+              <p class="kicker">SAFETY-FOCUSED ROUTE</p>
+              <span class="card-tag tag-safety">Fewest collisions/mi</span>
+            </div>
+
+            <div id="safety-details">
+              <p class="metric" id="safety-time">—</p>
+              <p class="metric-sub" id="safety-extra"></p>
+
+              <div class="badges" id="safety-badges"></div>
+
+              <dl class="stat-grid">
+                <div class="stat">
+                  <dt>Distance</dt>
+                  <dd id="safety-distance">—</dd>
+                </div>
+                <div class="stat">
+                  <dt>Collisions nearby</dt>
+                  <dd id="safety-collisions">—</dd>
+                </div>
+                <div class="stat">
+                  <dt>Per mile</dt>
+                  <dd>
+                    <span id="safety-rate">—</span>
+                    <span class="rate-diff" id="safety-rate-diff"></span>
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <p class="card-empty" id="safety-empty" hidden></p>
+
+            <button type="button" class="route-select" data-select-route="safety" id="safety-select">
+              Choose this route
+            </button>
           </div>
         </div>
 
-        <article class="results-card" id="empty-state">
-          <p class="empty">Enter a start and destination, then click Find Route. The map will show a real street-following drive from OpenStreetMap routing.</p>
-        </article>
-
-        <article class="results-card" id="results" hidden>
-          <p class="alt-note" id="alt-note" hidden></p>
-          <div class="compare">
-            <div class="route-card" data-card="fastest">
-              <p class="kicker">Fastest Route</p>
-              <p class="metric" id="fastest-time"></p>
-              <p class="meta" id="fastest-distance"></p>
-            </div>
-            <div class="route-card" data-card="safety">
-              <p class="kicker">Safety-Optimized Route</p>
-              <p class="metric" id="safety-time"></p>
-              <p class="meta" id="safety-distance"></p>
-              <p class="extra" id="safety-extra"></p>
-            </div>
-          </div>
-
-          <section>
-            <h2>Historical Risk Locations Avoided</h2>
+        <details class="detail-panel">
+          <summary>Explore collision data and calculations</summary>
+          <div class="detail-content">
+            <h3>Historical collision exposure</h3>
             <ul id="avoided-list"></ul>
-          </section>
+            <p class="detail-footnote">
+              Counts represent recorded collisions near sampled route
+              locations. They are not a validated prediction of individual
+              crash probability.
+            </p>
+          </div>
+        </details>
 
-          <section>
-            <h2>Why did the route change?</h2>
+        <details class="detail-panel">
+          <summary>How SafeRoute made its recommendation</summary>
+          <div class="detail-content">
             <p class="why" id="explanation"></p>
-          </section>
+            <h3>Decision process</h3>
+            <ol class="decision-steps" id="decision-steps">
+              <li>Retrieve available road routes.</li>
+              <li>Check route distances and collision data.</li>
+              <li>Compare options against your preferences.</li>
+              <li>Explain the recommendation for your review.</li>
+            </ol>
+          </div>
+        </details>
 
-          <p class="disclaimer" id="disclaimer"></p>
-        </article>
-      </section>
-    </main>
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-      crossorigin=""
-    ></script>
-    <script type="module" src="js/app.js"></script>
-  </body>
+        <p class="disclaimer" id="disclaimer"></p>
+      </article>
+
+      <footer class="app-footer">
+        <span>SAFEROUTE</span>
+        <span>Prototype · Not a substitute for current road-safety information</span>
+      </footer>
+    </section>
+  </main>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script type="module" src="js/app.js"></script>
+</body>
 </html>
