@@ -3,160 +3,182 @@ let routeLayer;
 let fastestLayer;
 let markersLayer;
 
-export function initMap(
-  mapElement
-) {
-  map = L.map(mapElement).setView(
-    [34.0522, -118.2437],
-    11
-  );
+// Colors match the map legend.
+const COLORS = {
+  selected: "#2f6b4f",
+  fastest: "#64748b",
+  other: "#94a3b8"
+};
 
-  L.tileLayer(
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    {
-      attribution:
-        "&copy; OpenStreetMap contributors",
-    }
-  ).addTo(map);
+export function initMap() {
+  if (map) {
+    map.invalidateSize();
+    return map;
+  }
 
-  markersLayer =
-    L.layerGroup().addTo(map);
+  // Turn off the default top-left zoom buttons so they don't cover the
+  // status pill, then add them in the bottom-right corner instead.
+  map = L.map("map", { zoomControl: false }).setView([34.0522, -118.2437], 11);
+  L.control.zoom({ position: "bottomright" }).addTo(map);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors",
+    maxZoom: 19
+  }).addTo(map);
+
+  fastestLayer = L.layerGroup().addTo(map);
+  routeLayer = L.layerGroup().addTo(map);
+  markersLayer = L.layerGroup().addTo(map);
+
+  return map;
 }
 
-export function showRoute(
-  result
-) {
-  if (!map) {
-    return;
-  }
+// Remove all routes and markers (used when a search fails).
+export function clearMap() {
+  if (!map) return;
 
-  if (!result) {
-    return;
-  }
+  fastestLayer.clearLayers();
+  routeLayer.clearLayers();
+  markersLayer.clearLayers();
+}
 
-  const route =
-    result.selected;
+export function showRoute(result) {
+  if (!map) initMap();
 
-  const fastest =
-    result.fastest;
-
-  const from =
-    result.from;
-
-  const to =
-    result.to;
-
-  if (!route || !route.geometry) {
-    console.error(
-      "SafeRoute: selected route is missing geometry.",
-      result
-    );
-
-    return;
-  }
-
-  if (routeLayer) {
-    routeLayer.remove();
-  }
-
-  if (fastestLayer) {
-    fastestLayer.remove();
-  }
-
+  fastestLayer.clearLayers();
+  routeLayer.clearLayers();
   markersLayer.clearLayers();
 
-  /*
-   * OSRM returns coordinates as:
-   * [longitude, latitude]
-   *
-   * Leaflet expects:
-   * [latitude, longitude]
-   */
+  const fastest = result?.fastest;
+  const selected = result?.selected ?? fastest;
+  const routes = Array.isArray(result?.routes) ? result.routes : [];
 
-  const selectedCoordinates =
-    route.geometry.coordinates.map(
-      ([lon, lat]) => [lat, lon]
-    );
-
-  /*
-   * Draw the selected route.
-   */
-
-  routeLayer =
-    L.polyline(
-      selectedCoordinates,
-      {
-        weight: 6,
-        opacity: 0.9,
-      }
-    ).addTo(map);
-
-  /*
-   * Draw the fastest route as a
-   * secondary dashed line if it is
-   * different from the selected route.
-   */
-
-  if (
-    fastest &&
-    fastest.geometry &&
-    fastest.geometry !==
-      route.geometry
-  ) {
-    const fastestCoordinates =
-      fastest.geometry.coordinates.map(
-        ([lon, lat]) => [lat, lon]
-      );
-
-    fastestLayer =
-      L.polyline(
-        fastestCoordinates,
-        {
-          weight: 4,
-          opacity: 0.55,
-          dashArray: "8 8",
-        }
-      ).addTo(map);
+  if (!fastest?.geometry?.coordinates?.length) {
+    console.warn("SafeRoute: no fastest-route geometry was returned.");
+    return;
   }
 
-  /*
-   * Start marker.
-   */
-
-  if (from) {
-    L.marker([
-      from.lat,
-      from.lon,
-    ])
-      .bindPopup(
-        `<strong>Start</strong><br>${from.label}`
-      )
-      .addTo(markersLayer);
-  }
-
-  /*
-   * Destination marker.
-   */
-
-  if (to) {
-    L.marker([
-      to.lat,
-      to.lon,
-    ])
-      .bindPopup(
-        `<strong>Destination</strong><br>${to.label}`
-      )
-      .addTo(markersLayer);
-  }
-
-  /*
-   * Zoom the map to the selected route.
-   */
-
-  map.fitBounds(
-    routeLayer.getBounds(),
-    {
-      padding: [30, 30],
-    }
+  // Debug: shows every route the planner returned and its collision score.
+  console.table(
+    routes.map(route => ({
+      id: route.id,
+      source: route.source,
+      minutes: route.minutes,
+      miles: route.miles,
+      crashCount: route.crashCount,
+      crashRisk: route.crashRisk
+    }))
   );
+
+  // GeoJSON uses [longitude, latitude].
+  const toLatLngs = (geometry) =>
+    geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+
+  const hasGeometry = (route) => route?.geometry?.coordinates?.length > 1;
+
+  let bounds = null;
+  const addToBounds = (line) => {
+    bounds = bounds ? bounds.extend(line.getBounds()) : line.getBounds();
+  };
+
+  // 1. Every other available route, thin and faint, underneath.
+  for (const route of routes) {
+    if (route.id === fastest.id || route.id === selected.id || !hasGeometry(route)) continue;
+
+    const line = L.polyline(toLatLngs(route.geometry), {
+      color: COLORS.other,
+      weight: 4,
+      opacity: 0.6
+    })
+      .bindTooltip(routeLabel(alternativeName(route), route, fastest))
+      .addTo(fastestLayer);
+
+    addToBounds(line);
+  }
+
+  const selectedIsFastest = selected.id === fastest.id;
+
+  // 2. The fastest route (unless it is also the selected one).
+  if (!selectedIsFastest) {
+    const fastestLine = L.polyline(toLatLngs(fastest.geometry), {
+      color: COLORS.fastest,
+      weight: 5,
+      opacity: 0.8,
+      dashArray: "8 8"
+    })
+      .bindTooltip(routeLabel("Fastest", fastest, fastest))
+      .addTo(fastestLayer);
+
+    addToBounds(fastestLine);
+  }
+
+  // 3. The selected route on top.
+  const selectedRoute = hasGeometry(selected) ? selected : fastest;
+
+  let selectedName = "Selected";
+  if (selectedIsFastest) selectedName = "Selected (also fastest)";
+  else if (isDetour(selectedRoute)) selectedName = "Selected (detour generated by SafeRoute)";
+
+  const selectedLine = L.polyline(toLatLngs(selectedRoute.geometry), {
+    color: COLORS.selected,
+    weight: 6,
+    opacity: 0.95
+  })
+    .bindTooltip(routeLabel(selectedName, selectedRoute, fastest))
+    .addTo(routeLayer);
+
+  addToBounds(selectedLine);
+
+  // Start and destination markers.
+  const from = result?.from;
+  const to = result?.to;
+
+  if (isValidPlace(from)) {
+    L.marker([from.lat, from.lon])
+      .bindPopup(`<strong>Start</strong><br>${escapeHtml(from.label)}`)
+      .addTo(markersLayer);
+  }
+
+  if (isValidPlace(to)) {
+    L.marker([to.lat, to.lon])
+      .bindPopup(`<strong>Destination</strong><br>${escapeHtml(to.label)}`)
+      .addTo(markersLayer);
+  }
+
+  map.fitBounds(bounds, { padding: [40, 40] });
+}
+
+function isDetour(route) {
+  return route?.source === "OSRM detour";
+}
+
+function alternativeName(route) {
+  return isDetour(route) ? "Detour alternative (generated by SafeRoute)" : "Alternative";
+}
+
+function routeLabel(name, route, fastest) {
+  const parts = [`${name}: ${route.minutes} min, ${route.miles} mi`];
+  const extra = route.minutes - fastest.minutes;
+
+  if (extra > 0) parts.push(`+${extra} min vs fastest`);
+
+  parts.push(
+    route.crashRisk != null
+      ? `${route.crashRisk.toFixed(1)} recorded collisions/mi nearby`
+      : "no collision data"
+  );
+
+  return parts.join(" · ");
+}
+
+function isValidPlace(place) {
+  return Number.isFinite(place?.lat) && Number.isFinite(place?.lon);
+}
+
+function escapeHtml(text = "") {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
